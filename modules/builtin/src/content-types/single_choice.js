@@ -1,4 +1,5 @@
 const base = require('./_base')
+const utils = require('./_utils')
 
 function render(data) {
   const events = []
@@ -42,67 +43,13 @@ function render(data) {
   ]
 }
 
-function renderMessenger(data) {
-  const events = []
-
-  if (data.typing) {
-    events.push({
-      type: 'typing',
-      value: data.typing
-    })
-  }
-
-  return [
-    ...events,
-    {
-      text: data.text,
-      quick_replies: data.choices.map(c => ({
-        content_type: 'text',
-        title: c.title,
-        payload: c.value.toUpperCase()
-      }))
-    }
-  ]
-}
-
-function renderSlack(data) {
-  const events = []
-
-  if (data.typing) {
-    events.push({
-      type: 'typing',
-      value: data.typing
-    })
-  }
-
-  return [
-    ...events,
-    {
-      text: data.text,
-      quick_replies: {
-        type: 'actions',
-        elements: data.choices.map((q, idx) => ({
-          type: 'button',
-          action_id: 'replace_buttons' + idx,
-          text: {
-            type: 'plain_text',
-            text: q.title
-          },
-          value: q.value.toUpperCase()
-        }))
-      }
-    }
-  ]
-}
-
 function renderElement(data, channel) {
-  if (channel === 'messenger') {
-    return renderMessenger(data)
-  } else if (channel === 'slack') {
-    return renderSlack(data)
-  } else {
-    return render(data)
+  // These channels now use channel renderers
+  if (['telegram', 'twilio', 'slack', 'smooch', 'vonage', 'teams', 'messenger'].includes(channel)) {
+    return utils.extractPayload('single-choice', data)
   }
+
+  return render(data)
 }
 
 module.exports = {
@@ -150,11 +97,7 @@ module.exports = {
           }
         }
       },
-      markdown: {
-        type: 'boolean',
-        title: 'module.builtin.useMarkdown',
-        default: true
-      },
+      ...base.useMarkdown,
       disableFreeText: {
         type: 'boolean',
         title: 'module.builtin.disableFreeText',
@@ -166,7 +109,8 @@ module.exports = {
 
   uiSchema: {
     text: {
-      'ui:field': 'i18n_field'
+      'ui:field': 'i18n_field',
+      $subtype: 'textarea'
     },
     choices: {
       'ui:field': 'i18n_array'

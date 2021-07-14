@@ -1,5 +1,6 @@
 {
   "admin": {
+    "apps": "Applications",
     "needsTraining": "Ce bot a besoin d'être entraîné.",
     "howToTrain": "Dans le studio, cliquez sur le bouton \"Entraîner maintenant\" (situé dans le coin en bas, à droite).",
     "alerting": {
@@ -301,7 +302,7 @@
           "editInStudio": "Modifier dans Studio",
           "error": "erreur",
           "export": "Export",
-          "languageIsMissing": "La langue du bot est manquante. Veuillez la définir dans la configuration du bot.",
+          "enableNLULanguages": "Le bot utilise des langues qui ne sont pas activées dans le NLU. [ {languages} ]",
           "needsYourReview": "A besoin de votre avis",
           "onDate": "le {date}",
           "openChat": "Ouvrir le chat",

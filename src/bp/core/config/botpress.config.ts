@@ -217,7 +217,7 @@ export interface BotpressConfig {
         title?: string
         /**
          * Replace the default favicon
-         * @example "assets/ui-studio/public/img/favicon.png"
+         * @example "assets/studio/ui/public/img/favicon.png"
          */
         favicon?: string
         /**
@@ -281,7 +281,7 @@ export interface BotpressConfig {
     maxFileSize: string
     /**
      * The list of allowed extensions for media file uploads
-     * @default ["image/jpeg","image/png","image/gif","audio/mpeg","video/mp4"]
+     * @default ["image/jpeg","image/png","image/gif","audio/mpeg","video/mp4","application/pdf"]
      */
     allowedMimeTypes: string[]
   }
@@ -452,6 +452,11 @@ export interface AuthStrategy {
    * @default false
    */
   allowSelfSignup: boolean
+  /**
+   * When enabled, authentication strategy will not be shown on the login page and only alternative ones will be present.
+   * @default false
+   */
+  hidden: boolean
 }
 
 export interface AuthStrategyBasic {
@@ -640,6 +645,7 @@ export interface AlertingConfig {
   /**
    * The list of rules which triggers an incident. When triggered, the OnIncidentChangedStatus hook
    * is called with the incident.
+   * @default []
    */
   rules: IncidentRule[]
 }

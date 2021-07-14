@@ -73,6 +73,11 @@ export const expectBotApiCallSuccess = async (endOfUrl: string, method?: HttpMet
   expect(response.status()).toBe(200)
 }
 
+export const expectStudioApiCallSuccess = async (endOfUrl: string, method?: HttpMethod): Promise<void> => {
+  const response = await getResponse(`${bpConfig.apiHost}/api/v1/studio/${bpConfig.botId}/${endOfUrl}`, method)
+  expect(response.status()).toBe(200)
+}
+
 export const waitForBotApiResponse = async (endOfUrl: string, method?: HttpMethod): Promise<any> => {
   const response = await getResponse(`${bpConfig.apiHost}/api/v1/bots/${bpConfig.botId}/${endOfUrl}`, method)
   return response.json()
@@ -101,11 +106,14 @@ export const getElementCenter = async (element: ElementHandle): Promise<{ x: num
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
-export const triggerKeyboardShortcut = async (key: string, ctrlKey?: boolean) => {
-  if (ctrlKey) {
-    await page.keyboard.down('Control')
+export const triggerKeyboardShortcut = async (key: string, holdCtrl?: boolean) => {
+  //not supported yet by puppetter
+  // const ctrlKey = process.platform == 'darwin' ? 'Meta' : 'Control'
+  const ctrlKey = 'Control'
+  if (holdCtrl) {
+    await page.keyboard.down(ctrlKey)
     await page.keyboard.press(key)
-    await page.keyboard.up('Control')
+    await page.keyboard.up(ctrlKey)
   } else {
     await page.keyboard.press(key)
   }

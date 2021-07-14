@@ -1,5 +1,6 @@
 import * as sdk from 'botpress/sdk'
 import lang from 'common/lang'
+import { makeNLUPassword } from 'common/nlu-token'
 import { createForGlobalHooks } from 'core/app/api'
 import { BotService, BotMonitoringService } from 'core/bots'
 import { GhostService } from 'core/bpfs'
@@ -15,7 +16,6 @@ import { LoggerDbPersister, LoggerFilePersister, LoggerProvider, LogsJanitor } f
 import { MigrationService } from 'core/migration'
 import { copyDir } from 'core/misc/pkg-fs'
 import { ModuleLoader } from 'core/modules'
-import { NotificationsService } from 'core/notifications'
 import { RealtimeService } from 'core/realtime'
 import { AuthService } from 'core/security'
 import { StatsService, AnalyticsService } from 'core/telemetry'
@@ -30,11 +30,11 @@ import _ from 'lodash'
 import moment from 'moment'
 import ms from 'ms'
 import nanoid from 'nanoid'
+import { startLocalActionServer, startLocalNLUServer } from 'orchestrator'
 import path from 'path'
 import plur from 'plur'
 
-import { startLocalActionServer } from '../../cluster'
-import { setDebugScopes } from '../../debug'
+import { getDebugScopes, setDebugScopes } from '../../debug'
 import { HTTPServer } from './server'
 import { TYPES } from './types'
 
@@ -73,7 +73,6 @@ export class Botpress {
     @inject(TYPES.LogJanitorRunner) private logJanitor: LogsJanitor,
     @inject(TYPES.LoggerDbPersister) private loggerDbPersister: LoggerDbPersister,
     @inject(TYPES.LoggerFilePersister) private loggerFilePersister: LoggerFilePersister,
-    @inject(TYPES.NotificationsService) private notificationService: NotificationsService,
     @inject(TYPES.StateManager) private stateManager: StateManager,
     @inject(TYPES.DataRetentionJanitor) private dataRetentionJanitor: DataRetentionJanitor,
     @inject(TYPES.DataRetentionService) private dataRetentionService: DataRetentionService,
@@ -117,6 +116,7 @@ export class Botpress {
 
     AppLifecycle.setDone(AppLifecycleEvents.CONFIGURATION_LOADED)
 
+    this.displayRedisChannelPrefix()
     await this.restoreDebugScope()
     await this.checkJwtSecret()
     await this.loadModules(options.modules)
@@ -125,6 +125,7 @@ export class Botpress {
     await this.initializeServices()
     await this.checkEditionRequirements()
     await this.deployAssets()
+    await this.maybeStartLocalSTAN()
     await this.startRealtime()
     await this.startServer()
     await this.discoverBots()
@@ -180,6 +181,52 @@ export class Botpress {
     startLocalActionServer({ appSecret: process.APP_SECRET, port })
   }
 
+  private async maybeStartLocalSTAN() {
+    if (!process.LOADED_MODULES['nlu']) {
+      this.logger.warn(
+        'NLU server is disabled. Enable the NLU module and restart Botpress to start the standalone NLU server'
+      )
+      return
+    }
+
+    const config = await this.moduleLoader.configReader.getGlobal('nlu')
+
+    const autoStart = config.nluServer?.autoStart ?? true
+    if (!autoStart) {
+      if (!config.nluServer?.endpoint) {
+        this.logger.warn("NLU server isn't configured properly, set it to auto start or provide an endpoint")
+      } else {
+        const { endpoint } = config.nluServer
+        this.logger.info(`NLU server manually handled at: ${endpoint}`)
+      }
+
+      return
+    }
+
+    const debugScopes = getDebugScopes()
+    const nluDebugScopes = Object.entries(debugScopes)
+      .filter(([k, v]) => v)
+      .map(([k, v]) => k)
+      .filter(x => x.startsWith('bp:nlu:'))
+      .map(x => x.replace('bp:nlu:', ''))
+
+    const verbose = nluDebugScopes.length ? 4 : 3
+    const logFilter = nluDebugScopes.length ? nluDebugScopes : undefined
+
+    startLocalNLUServer({
+      languageSources: config.languageSources,
+      ducklingURL: config.ducklingURL,
+      ducklingEnabled: config.ducklingEnabled,
+      legacyElection: config.legacyElection,
+      dbURL: process.core_env.BPFS_STORAGE === 'database' ? process.core_env.DATABASE_URL : undefined,
+      modelDir: process.cwd(),
+      modelCacheSize: config.modelCacheSize,
+      authToken: makeNLUPassword(),
+      logFilter,
+      verbose
+    })
+  }
+
   async checkJwtSecret() {
     // @deprecated > 11: .jwtSecret has been renamed for appSecret. botpress > 11 jwtSecret will not be supported
     // @ts-ignore
@@ -191,6 +238,12 @@ export class Botpress {
     }
 
     process.APP_SECRET = appSecret
+  }
+
+  displayRedisChannelPrefix() {
+    if (process.CLUSTER_ENABLED && process.env.REDIS_URL && process.env.BP_REDIS_SCOPE) {
+      this.logger.debug(`Redis using scope: ${process.env.BP_REDIS_SCOPE}`)
+    }
   }
 
   async checkEditionRequirements() {
@@ -259,16 +312,6 @@ export class Botpress {
       const assets = path.resolve(process.PROJECT_LOCATION, 'data/assets')
       await copyDir(path.join(__dirname, '../../admin/ui'), `${assets}/admin/ui`)
       await copyDir(path.join(__dirname, '../../ui-lite'), `${assets}/ui-lite`)
-
-      // Avoids overwriting the folder when developing locally on the studio
-      if (fse.pathExistsSync(`${assets}/ui-studio/public`)) {
-        const studioPath = fse.lstatSync(`${assets}/ui-studio/public`)
-        if (studioPath.isSymbolicLink()) {
-          return
-        }
-      }
-
-      await copyDir(path.join(__dirname, '../../ui-studio'), `${assets}/ui-studio`)
     } catch (err) {
       this.logger.attachError(err).error('Error deploying assets')
     }
@@ -431,14 +474,6 @@ export class Botpress {
     }
 
     await this.dataRetentionService.initialize()
-
-    this.notificationService.onNotification = notification => {
-      const payload: sdk.RealTimePayload = {
-        eventName: 'notifications.new',
-        payload: notification
-      }
-      this.realtimeService.sendToSocket(payload)
-    }
 
     await this.stateManager.initialize()
     await this.logJanitor.start()

@@ -56,8 +56,7 @@ export class SDKStats extends TelemetryStats {
     @inject(TYPES.Database) database: Database,
     @inject(TYPES.LicensingService) licenseService: LicensingService,
     @inject(TYPES.JobService) jobService: JobService,
-    @inject(TYPES.TelemetryRepository) telemetryRepo: TelemetryRepository,
-    @inject(TYPES.BotService) private botService: BotService
+    @inject(TYPES.TelemetryRepository) telemetryRepo: TelemetryRepository
   ) {
     super(ghostService, database, licenseService, jobService, telemetryRepo)
     this.url = process.TELEMETRY_URL
@@ -74,14 +73,14 @@ export class SDKStats extends TelemetryStats {
   }
 
   private async getSDKUsage(): Promise<SDKUsageEvent> {
-    const bots = await this.botService.getBotsIds()
+    const bots = BotService.getMountedBots()
     return { actions: await this.getActionUsages(bots), hooks: await this.getHooksUsages() }
   }
 
   private async getActionUsages(bots: string[]): Promise<SDKUsage> {
     const rootFolder = 'actions'
     const globalActionsNames = (await this.ghostService.global().directoryListing('/', `${rootFolder}/*.js`)).map(
-      path => path.split('/').pop() || ''
+      path => path?.split('/').pop() || ''
     )
 
     const reducer = async (parsedFilesAcc, botId) => {
@@ -117,7 +116,7 @@ export class SDKStats extends TelemetryStats {
       }
     }
 
-    const hooksPayload = await getHooksLifecycle(this.botService, this.ghostService, false)
+    const hooksPayload = await getHooksLifecycle(this.ghostService, false)
     const global = await this.parseHooks(hooksPayload.global.filter(hook => hook.type === 'custom'))
     const perBots = await Promise.reduce(hooksPayload.perBots, reducer, [] as ParsedFile[])
 
@@ -140,7 +139,7 @@ export class SDKStats extends TelemetryStats {
   private async parseFile(name: string, rootFolder: string, usageParams?: UsageParams): Promise<ParsedFile> {
     const file = await this.readFileAsString(rootFolder, name, usageParams?.botId)
     const functions = this.extractFunctions(parse(file, PARSE_CONFIG))
-    const fileName = calculateHash(name.split('/').pop() || '')
+    const fileName = calculateHash(name?.split('/').pop() || '')
     const usage: ParsedFile = { fileName, usages: this.parseMethods(functions) }
 
     if (usageParams?.botId) {
@@ -151,7 +150,7 @@ export class SDKStats extends TelemetryStats {
   }
 
   private parseMethods(methods: string[]): Usage[] {
-    const sdkMethods = _.countBy(methods.filter(method => method.split('.')[0] === 'bp'))
+    const sdkMethods = _.countBy(methods.filter(method => method?.split('.')[0] === 'bp'))
     return _.map(sdkMethods, (count, methodChain) => {
       const [, ...namespace] = methodChain.split('.')
       const method = namespace.pop() || ''
