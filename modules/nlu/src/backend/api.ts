@@ -9,12 +9,16 @@ import { NLUApplication } from './application'
 import { BotDoesntSpeakLanguageError, BotNotMountedError } from './application/errors'
 import { TrainingSession } from './application/typings'
 import { election } from './election'
-import createRepositoryRouter from './train-repo-router'
-import { NLUProgressEvent } from './typings'
 
 const ROUTER_ID = 'nlu'
 
-export const PredictSchema = Joi.object().keys({
+interface NLUProgressEvent {
+  type: 'nlu'
+  botId: string
+  trainSession: sdk.NLU.TrainingSession
+}
+
+const PredictSchema = Joi.object().keys({
   contexts: Joi.array()
     .items(Joi.string())
     .default(['global']),
@@ -57,24 +61,46 @@ export const getWebsocket = (bp: typeof sdk) => {
 
 export const registerRouter = async (bp: typeof sdk, app: NLUApplication) => {
   const router = bp.http.createRouterForBot(ROUTER_ID)
+  const webSocket = getWebsocket(bp)
 
   const mapError = makeErrorMapper(bp)
   const needsWriteMW = bp.http.needPermission('write', 'bot.training')
 
   const globalConfig: Config = await bp.config.getModuleConfig('nlu')
 
+  /**
+   * This is needed because of limitiations on ghost file listening
+   * and the fact studio and runtime don't share the same process.
+   */
+  router.post('/checkForDirtyModels', async (req, res) => {
+    const { botId } = req.params
+    const bot = app.getBot(botId)
+    for (const l of bot.languages) {
+      const ts = await bot.syncAndGetState(l)
+      await webSocket({ ...ts, botId, language: l })
+    }
+    res.sendStatus(200)
+  })
+
   router.get('/health', async (req, res) => {
     // When the health is bad, we'll refresh the status in case it has changed (eg: user added languages)
-    const health = app.getHealth()
-    res.send(health)
+    const health = await app.getHealth()
+    if (!health) {
+      return res.status(404).send('NLU Server is unreachable')
+    }
+    return res.send(health)
   })
 
   router.get('/training/:language', async (req, res) => {
-    const { language, botId } = req.params
+    const { language: lang, botId } = req.params
 
-    const state = await app.getTraining(botId, language)
-    const ts = mapTrainSession({ botId, language, ...state })
-    res.send(ts)
+    try {
+      const state = await app.getBot(botId).syncAndGetState(lang)
+      const ts = mapTrainSession({ botId, language: lang, ...state })
+      res.send(ts)
+    } catch (error) {
+      return mapError({ botId, lang, error }, res)
+    }
   })
 
   router.post(['/predict', '/predict/:lang'], async (req, res) => {
@@ -86,11 +112,13 @@ export const registerRouter = async (bp: typeof sdk, app: NLUApplication) => {
 
     try {
       const bot = app.getBot(botId)
+      const t0 = Date.now()
       const nlu = await bot.predict(value.text, lang)
       const event: sdk.IO.EventUnderstanding = {
         ...nlu,
         includedContexts: value.contexts,
-        detectedLanguage: nlu.detectedLanguage
+        detectedLanguage: nlu.detectedLanguage,
+        ms: Date.now() - t0
       }
       res.send({ nlu: election(event, globalConfig) })
     } catch (error) {
@@ -102,9 +130,6 @@ export const registerRouter = async (bp: typeof sdk, app: NLUApplication) => {
     const { botId, lang } = req.params
     try {
       const disableTraining = yn(process.env.BP_NLU_DISABLE_TRAINING)
-
-      // to return as fast as possible
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       if (!disableTraining) {
         await app.queueTraining(botId, lang)
       }
@@ -117,16 +142,12 @@ export const registerRouter = async (bp: typeof sdk, app: NLUApplication) => {
   router.post('/train/:lang/delete', needsWriteMW, async (req, res) => {
     const { botId, lang } = req.params
     try {
-      await app.cancelTraining(botId, lang)
+      await app.getBot(botId).cancelTraining(lang)
       res.sendStatus(200)
     } catch (error) {
       return mapError({ botId, lang, error }, res)
     }
   })
-
-  const repoRouter = createRepositoryRouter(app)
-
-  router.use('/trainrepo', repoRouter)
 }
 
 export const removeRouter = (bp: typeof sdk) => {

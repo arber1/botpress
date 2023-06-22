@@ -1,4 +1,5 @@
-const URL = require("url").URL;
+const URL = require('url').URL
+const path = require('path')
 
 function isBpUrl(str) {
   const re = /^\/api\/.*\/bots\/.*\/media\/.*/
@@ -23,7 +24,37 @@ function formatURL(baseUrl, url) {
   }
 }
 
-module.exports = { 
+function extractFileName(file) {
+  let fileName = path.basename(file)
+  if (fileName.includes('-')) {
+    fileName = fileName
+      .split('-')
+      .slice(1)
+      .join('-')
+  }
+
+  return fileName
+}
+
+function extractPayload(type, data) {
+  const payload = {
+    type,
+    ...data
+  }
+
+  delete payload.event
+  delete payload.temp
+  delete payload.user
+  delete payload.session
+  delete payload.bot
+  delete payload.BOT_URL
+
+  return payload
+}
+
+module.exports = {
   formatURL: formatURL,
-  isUrl: isUrl
+  isUrl: isUrl,
+  extractPayload: extractPayload,
+  extractFileName: extractFileName
 }

@@ -1,36 +1,14 @@
 const base = require('./_base')
-const path = require('path')
 const utils = require('./_utils')
 
-function render(data) {
-  const events = []
-
-  if (data.typing) {
-    events.push({
-      type: 'typing',
-      value: data.typing
-    })
-  }
-
-  return [
-    ...events,
-    {
-      type: 'video',
-      title: data.title,
-      url: utils.formatURL(data.BOT_URL, data.video),
-      collectFeedback: data.collectFeedback
-    }
-  ]
-}
-
 function renderElement(data, channel) {
-  return render(data)
+  return utils.extractPayload('video', data)
 }
 
 module.exports = {
   id: 'builtin_video',
-  group: 'Built-in Video',
-  title: 'Video',
+  group: 'Built-in Messages',
+  title: 'module.builtin.types.video.title',
 
   jsonSchema: {
     description: 'module.builtin.types.video.description',
@@ -65,16 +43,9 @@ module.exports = {
 
     const link = utils.formatURL(formData.BOT_URL, formData.video)
     const title = formData.title ? ' | ' + formData.title : ''
-    let fileName = ''
 
     if (utils.isUrl(link)) {
-      fileName = path.basename(formData.video)
-      if (fileName.includes('-')) {
-        fileName = fileName
-          .split('-')
-          .slice(1)
-          .join('-')
-      }
+      const fileName = utils.extractFileName(formData.video)
       return `Video: (${fileName}) ${title}`
     } else {
       return `Expression: ${link}${title}`

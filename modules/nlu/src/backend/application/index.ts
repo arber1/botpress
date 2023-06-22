@@ -1,115 +1,83 @@
-import * as NLU from 'common/nlu/engine'
+import { Logger } from 'botpress/sdk'
 import _ from 'lodash'
-import yn from 'yn'
 
-import { IScopedServicesFactory } from './bot-factory'
-import { IBotService } from './bot-service'
+import { Bot } from './bot'
+import { BotFactory } from './bot-factory'
 import { BotNotMountedError } from './errors'
-import { ITrainingQueue } from './training-queue'
-import { ITrainingRepository } from './training-repo'
-import { Predictor, BotConfig, TrainingSession, TrainingState, TrainingId } from './typings'
+import { NLUClient } from './nlu-client'
+import { BotConfig } from './typings'
+
+interface Config {
+  queueTrainingsOnBotMount: boolean
+}
 
 export class NLUApplication {
-  private _queueTrainingOnBotMount: boolean
+  private _bots: _.Dictionary<Bot> = {}
 
   constructor(
-    private _trainingQueue: ITrainingQueue,
-    private _engine: NLU.Engine,
-    private _servicesFactory: IScopedServicesFactory,
-    private _botService: IBotService,
-    queueTrainingOnBotMount: boolean = true
-  ) {
-    this._queueTrainingOnBotMount = queueTrainingOnBotMount
-  }
+    private _nluClient: NLUClient,
+    private _botFactory: BotFactory,
+    private _config: Partial<Config>,
+    protected _logger: Logger
+  ) {}
 
-  public get trainRepository(): ITrainingRepository {
-    return this._trainingQueue.repository
-  }
-
-  public teardown = async () => {
-    for (const botId of this._botService.getIds()) {
+  public async teardown() {
+    for (const botId of Object.keys(this._bots)) {
       await this.unmountBot(botId)
     }
-    return this._trainingQueue.teardown()
   }
 
-  public getHealth() {
-    return this._engine.getHealth()
+  public async getHealth(opt: { reportError: boolean } = { reportError: true }) {
+    try {
+      const { health } = await this._nluClient.getInfo()
+      return health
+    } catch (err) {
+      opt.reportError && this._logger.attachError(err).error('An error occured when fetch info from NLU Server.')
+      return
+    }
   }
 
-  public async getTraining(botId: string, language: string): Promise<TrainingState> {
-    return this._trainingQueue.getTraining({ botId, language })
+  public hasBot(botId: string) {
+    return !!this._bots[botId]
   }
 
-  async resumeTrainings(): Promise<void> {
-    await this._trainingQueue.resume()
-  }
-
-  public hasBot = (botId: string) => {
-    return !!this._botService.getBot(botId)
-  }
-
-  public getBot(botId: string): Predictor {
-    const bot = this._botService.getBot(botId)
+  public getBot(botId: string): Bot {
+    const bot = this._bots[botId]
     if (!bot) {
       throw new BotNotMountedError(botId)
     }
     return bot
   }
 
-  public mountBot = async (botConfig: BotConfig) => {
-    const { id: botId, languages } = botConfig
-    const { bot, defService, modelRepo } = await this._servicesFactory.makeBot(botConfig)
-    this._botService.setBot(botId, bot)
-
-    const makeDirtyModelHandler = (cb: (trainId: TrainingId) => Promise<void>) => async (language: string) => {
-      const latestModelId = await defService.getLatestModelId(language)
-      if (await modelRepo.hasModel(latestModelId)) {
-        await bot.load(latestModelId)
-        return
-      }
-      return cb({ botId, language })
-    }
-
-    const loadOrSetTrainingNeeded = makeDirtyModelHandler((trainId: TrainingId) =>
-      this._trainingQueue.needsTraining(trainId)
-    )
-    defService.listenForDirtyModels(loadOrSetTrainingNeeded)
-
-    const trainingEnabled = !yn(process.env.BP_NLU_DISABLE_TRAINING)
-    const trainingHandler =
-      this._queueTrainingOnBotMount && trainingEnabled
-        ? (trainId: TrainingId) => this._trainingQueue.queueTraining(trainId)
-        : (trainId: TrainingId) => this._trainingQueue.needsTraining(trainId)
-
-    const loadModelOrQueue = makeDirtyModelHandler(trainingHandler)
-    await Promise.each(languages, lang => loadModelOrQueue(lang))
-    await bot.mount()
+  public async mountBot(botConfig: BotConfig) {
+    const { id: botId } = botConfig
+    const bot = await this._botFactory.makeBot(botConfig)
+    this._bots[botId] = bot
+    return bot.mount({
+      queueTraining: !!this._config.queueTrainingsOnBotMount
+    })
   }
 
-  public unmountBot = async (botId: string) => {
-    const bot = this._botService.getBot(botId)
+  public async unmountBot(botId: string) {
+    const bot = this._bots[botId]
     if (!bot) {
       throw new BotNotMountedError(botId)
     }
+
     await bot.unmount()
-    await this._trainingQueue.cancelTrainings(botId) // TODO: fully remove training sessions
-    this._botService.removeBot(botId)
+    delete this._bots[botId]
   }
 
   public async queueTraining(botId: string, language: string) {
-    const bot = this._botService.getBot(botId)
+    const bot = this._bots[botId]
     if (!bot) {
       throw new BotNotMountedError(botId)
     }
-    return this._trainingQueue.queueTraining({ botId, language })
-  }
 
-  public async cancelTraining(botId: string, language: string) {
-    const bot = this._botService.getBot(botId)
-    if (!bot) {
-      throw new BotNotMountedError(botId)
-    }
-    return this._trainingQueue.cancelTraining({ botId, language })
+    // the Bot class will report progress and handle errors
+    void bot
+      .train(language)
+      .then(_.identity)
+      .catch(_.identity)
   }
 }

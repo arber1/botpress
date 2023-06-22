@@ -1,6 +1,6 @@
 import { Icon } from '@blueprintjs/core'
-import { MainLayout, lang } from 'botpress/shared'
-import { SearchBar, SectionAction, SidePanel, SidePanelSection } from 'botpress/ui'
+import { MainLayout, lang, ModuleUI } from 'botpress/shared'
+import { ALL_BOTS } from 'common/utils'
 import _ from 'lodash'
 import { inject, observer } from 'mobx-react'
 import React from 'react'
@@ -16,6 +16,8 @@ import FileNavigator from './FileNavigator'
 import { RootStore, StoreDef } from './store'
 import { EditorStore } from './store/editor'
 import { EXAMPLE_FOLDER_LABEL } from './utils/tree'
+
+const { SearchBar, SidePanel, SidePanelSection } = ModuleUI
 
 class PanelContent extends React.Component<Props> {
   private expandedNodes = {}
@@ -80,6 +82,7 @@ class PanelContent extends React.Component<Props> {
     this.addFiles('global.module_config', lang.tr('module.code-editor.sidePanel.global'), moduleConfigFiles)
 
     const sharedLibs = []
+    this.addFiles('bot.shared_libs', lang.tr('module.code-editor.sidePanel.currentBot'), sharedLibs)
     this.addFiles('global.shared_libs', lang.tr('module.code-editor.sidePanel.global'), sharedLibs)
 
     this.addFiles('hook_example', EXAMPLE_FOLDER_LABEL, hookFiles)
@@ -109,6 +112,13 @@ class PanelContent extends React.Component<Props> {
     this.setState({ fileType: type, hookType, isCreateModalOpen: true })
   }
 
+  showAddButtons(type: string): boolean {
+    const isGlobalApp = window.BOT_ID === ALL_BOTS
+    const canWriteGlobal = this.hasPermission(`global.${type}`, true)
+
+    return !isGlobalApp || (isGlobalApp && canWriteGlobal)
+  }
+
   renderSectionModuleConfig() {
     if (!this.hasPermission('global.module_config') && !this.hasPermission('bot.module_config')) {
       return null
@@ -130,7 +140,7 @@ class PanelContent extends React.Component<Props> {
   }
 
   renderSectionConfig() {
-    if (!this.hasPermission('global.main_config') || !this.hasPermission('bot.bot_config')) {
+    if (!this.hasPermission('global.main_config') && !this.hasPermission('bot.bot_config')) {
       return null
     }
 
@@ -172,6 +182,10 @@ class PanelContent extends React.Component<Props> {
       ]
     }
 
+    if (!this.showAddButtons('actions')) {
+      actions = []
+    }
+
     return (
       <SidePanelSection label={lang.tr('module.code-editor.sidePanel.actions')} actions={actions}>
         <FileNavigator
@@ -187,7 +201,7 @@ class PanelContent extends React.Component<Props> {
   }
 
   renderSharedLibs() {
-    if (!this.hasPermission('global.shared_libs')) {
+    if (!this.hasPermission('bot.shared_libs')) {
       return null
     }
 
@@ -246,7 +260,7 @@ class PanelContent extends React.Component<Props> {
         label={lang.tr('module.code-editor.sidePanel.rawFileEditor')}
         actions={[
           {
-            id: 'btn-upload',
+            id: 'btn-upload-sidepanel',
             icon: <Icon icon="upload" />,
             key: 'upload',
             onClick: () => this.setState({ selectedFile: undefined, isUploadModalOpen: true })
@@ -281,6 +295,10 @@ class PanelContent extends React.Component<Props> {
   }
 
   _buildHooksActions(showGlobalHooks: boolean) {
+    if (!this.showAddButtons('hooks')) {
+      return []
+    }
+
     const hooks = Object.keys(HOOK_SIGNATURES).map(hookType => ({
       id: hookType,
       label: hookType
@@ -300,7 +318,8 @@ class PanelContent extends React.Component<Props> {
             'before_outgoing_middleware',
             'after_event_processed',
             'before_suggestions_election',
-            'before_session_timeout'
+            'before_session_timeout',
+            'before_conversation_end'
           ].includes(x.id)
         )
       },
@@ -351,6 +370,7 @@ class PanelContent extends React.Component<Props> {
             <React.Fragment>
               {this.renderSectionActions()}
               {this.renderSectionHooks()}
+              {this.renderSharedLibs()}
               {this.renderSectionConfig()}
               {this.renderSectionModuleConfig()}
             </React.Fragment>

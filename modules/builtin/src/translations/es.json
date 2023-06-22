@@ -37,19 +37,51 @@
       "videoLabel": "Título",
       "title": "Video"
     },
+    "file": {
+      "description": "Un mensaje que muestra algún archivo con un título opcional",
+      "fileLabel": "Título",
+      "title": "Archivo"
+    },
     "singleChoice": {
       "choice": "Elección",
       "description": "Sugerir opciones al usuario con la intención de seleccionar solo una (con un mensaje opcional)",
       "itemTitle": "El título de la elección (esto es lo que se muestra al usuario)",
       "itemValue": "El valor que obtiene el bot cuando el usuario elige esta opción (normalmente oculto al usuario)",
-      "title": "Elección única"
+      "title": "Elección única",
+      "displayInMessageTitle": "Mostrar debajo del mensaje"
     },
     "text": {
       "alternatives": "Alternativas (opcional)",
       "description": "Un mensaje de texto regular con indicadores de escritura opcionales y alternativas",
       "message": "Mensaje"
+    },
+    "location": {
+      "title": "Localización",
+      "description": "Un mensaje que muestra una ubicación con una dirección y un título opcionales",
+      "latitude": "Latitud",
+      "longitude": "Longitud",
+      "address": "Dirección",
+      "label": "Título"
+    },
+    "dropdown": {
+      "allowCreate": "Permitir la creación de nuevas opciones",
+      "allowMultiple": "Permitir múltiples opciones",
+      "asKeyboardDesc": "Se mostrará justo encima del compositor (como opciones)",
+      "asKeyboardTitle": "Mostrar como teclado",
+      "buttonDesc": "Cuando se deja en blanco, la opción seleccionada se envía cuando se cierra el menú desplegable",
+      "buttonText": "El texto que se mostrará en el botón.",
+      "desc": "Muestra una lista de opciones al usuario.",
+      "itemLabel": "El texto que se muestra en el menú desplegable",
+      "itemValue": "El valor que recibirá el bot (opcional)",
+      "optionsList": "Lista de opciones",
+      "title": "Desplegable",
+      "widthDesc": "El tamaño predeterminado muestra la selección y el botón en una línea. Cámbielo para adaptarlo a sus necesidades",
+      "widthTitle": "El ancho del componente (en píxeles)",
+      "useMarkdown": "Usar markdown"
     }
   },
   "typingIndicator": "Mostrar indicadores de escritura",
-  "useMarkdown": "Usar markdown"
+  "markdownHelp": "Consulte esta documentación para conocer la sintaxis de markdown: ",
+  "useMarkdown": "Usar markdown",
+  "disableFreeText": "Deshabilitar el texto libre"
 }

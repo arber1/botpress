@@ -2,19 +2,17 @@ import { Button, Popover } from '@blueprintjs/core'
 import { DateRange, DateRangePicker } from '@blueprintjs/datetime'
 import '@blueprintjs/datetime/lib/css/blueprint-datetime.css'
 import { AxiosStatic } from 'axios'
-import { date, lang } from 'botpress/shared'
-import { Container, SidePanel, SplashScreen } from 'botpress/ui'
+import { date, lang, ModuleUI } from 'botpress/shared'
 import classnames from 'classnames'
 import React from 'react'
 
 import { DbFlaggedEvent, FLAGGED_MESSAGE_STATUS, FLAG_REASON, ResolutionData } from '../../types'
 
 import ApiClient from './ApiClient'
+import { groupEventsByUtterance } from './eventUtils'
 import MainScreen from './MainScreen'
 import SidePanelContent from './SidePanel'
 import style from './style.scss'
-import { groupEventsByUtterance } from './eventUtils'
-import { kebabCase } from 'lodash'
 
 interface Props {
   contentLang: string
@@ -39,6 +37,7 @@ interface State {
 }
 
 const shortcuts = date.createDateRangeShortcuts()
+const { Container, SidePanel, SplashScreen } = ModuleUI
 
 export default class MisunderstoodMainView extends React.Component<Props, State> {
   state: State = {
@@ -110,7 +109,7 @@ export default class MisunderstoodMainView extends React.Component<Props, State>
 
   setEventsStatus = async (selectedStatus: FLAGGED_MESSAGE_STATUS) => {
     await this.setStateP({ selectedStatus, events: null, selectedEventIndex: null, selectedEvent: null })
-    const events = await this.fetchEvents(this.state.language, selectedStatus)
+    const events = await this.fetchEvents(this.state.language, selectedStatus, null, this.state.reason)
     await this.setStateP({ events })
     await this.setEventIndex(0)
     await this.updateEventsCounts()
@@ -200,6 +199,9 @@ export default class MisunderstoodMainView extends React.Component<Props, State>
       FLAGGED_MESSAGE_STATUS.pending,
       resolutionData
     )
+
+    await this.setStateP({ checkedEventIds: [], selectAllChecked: false })
+
     return this.alterEventsList(
       FLAGGED_MESSAGE_STATUS.new,
       FLAGGED_MESSAGE_STATUS.pending,

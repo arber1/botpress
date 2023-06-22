@@ -17,6 +17,12 @@ export interface Config {
   messageCount: number
 
   /**
+   * @param handoffAlert Amount of time in minutes before an unassigned handoff turns yellow.
+   * @default 5
+   */
+  handoffAlert?: number
+
+  /**
    * @param defaultUsername Whether or not to display a random username for anonymous users
    * @default false
    */
@@ -41,7 +47,7 @@ export interface Config {
 
   /**
    * @param transferMessage The message sent to the user when he is being transferred to an agent. E.g. ̀`{ "lang": "message"}`.
-   * @default { "en": "You are being transferred to an agent.", "fr": "Vous êtes transféré à un agent."}
+   * @default { "en": "You are being transferred to an agent.", "fr": "Vous êtes transféré à un agent.", "es": "Se le está transfiriendo a un agente."}
    */
   transferMessage: {
     [Key: string]: string
@@ -50,11 +56,17 @@ export interface Config {
   /**
    * @param assignMessage The message sent to the user when he has been assigned to an agent.
    * @argument agentName It is possible to specify the agent name as an argument to the message. See the example below.
-   * @default { "en": "You have been assigned to our agent {{agentName}}.", "fr": "Vous avez été assigné à notre agent(e) {{agentName}}."}
+   * @default { "en": "You have been assigned to our agent {{agentName}}.", "fr": "Vous avez été assigné à notre agent(e) {{agentName}}.", "es": "Ha sido asignado al agente {{agentName}}."}
    */
   assignMessage: {
     [Key: string]: string
   }
+
+  /**
+   * @param eventsWebHook
+   * @default {}
+   */
+  eventsWebHook?: Webhook
 }
 
 export interface IShortcut {
@@ -75,4 +87,17 @@ export interface IAutoComplete {
    * @example [{ "name": "hello", "value": "Hello friend!" }]
    */
   shortcuts: IShortcut[]
+}
+
+export interface Webhook {
+  /**
+   * @param url
+   * @example "https://myapplicationserver.com/webhook-handler"
+   */
+  url?: string
+  /**
+   * @param headers
+   * @example { "authorization": "Baerer ..." }
+   */
+  headers?: { [name: string]: string }
 }

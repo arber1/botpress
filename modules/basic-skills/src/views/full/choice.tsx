@@ -14,7 +14,7 @@ import {
 // @ts-ignore
 import ContentPickerWidget from 'botpress/content-picker'
 import _ from 'lodash'
-import nanoid from 'nanoid/generate'
+import { customAlphabet } from 'nanoid'
 import React from 'react'
 
 import style from './style.scss'
@@ -53,7 +53,7 @@ export class Choice extends React.Component<SkillProps<ChoiceData> & { bp: any }
   state: State = {
     tab: 'basic',
     keywords: {},
-    randomId: nanoid('abcdefghijklmnopqrstuvwxyz0123456789', 10),
+    randomId: customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10)(),
     contentId: '',
     invalidContentId: '',
     config: {
@@ -89,7 +89,7 @@ export class Choice extends React.Component<SkillProps<ChoiceData> & { bp: any }
     const id = this.state.contentId
 
     if (id && id.length) {
-      const res = await this.props.bp.axios.get(`/content/element/${id}`)
+      const res = await this.props.bp.axios.get(`/cms/element/${id}`, { baseURL: window['STUDIO_API_PATH'] })
       return this.onContentChanged(res.data, true)
     }
   }

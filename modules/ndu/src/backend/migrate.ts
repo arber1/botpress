@@ -1,12 +1,12 @@
 import axios from 'axios'
 import * as sdk from 'botpress/sdk'
 import _ from 'lodash'
-import generate from 'nanoid/generate'
+import { customAlphabet } from 'nanoid'
 
 import { bots as mountedBots, conditions } from '.'
 import { DEFAULT_MIN_CONFIDENCE, UnderstandingEngine } from './ndu-engine'
 
-const prettyId = (length = 10) => generate('1234567890abcdef', length)
+const prettyId = (length = 10) => customAlphabet('1234567890abcdef', length)()
 const debug = DEBUG('ndu').sub('migrate')
 
 interface TemplateFile {
@@ -130,7 +130,7 @@ const getIntentContexts = async (ghost: sdk.ScopedGhostService) => {
 
 const createTopicsFromContexts = async (bp: typeof sdk, ghost: sdk.ScopedGhostService, botId: string) => {
   try {
-    const axiosConfig = await bp.http.getAxiosConfigForBot(botId, { localUrl: true })
+    const axiosConfig = await bp.http.getAxiosConfigForBot(botId, { localUrl: true, studioUrl: true })
 
     const contexts = await getIntentContexts(ghost)
     const { data: existingTopics } = await axios.get('/topics', axiosConfig)

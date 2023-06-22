@@ -1,5 +1,4 @@
-import { confirmDialog, lang, toast } from 'botpress/shared'
-import { Container, ItemList, SidePanel, SidePanelSection, SplashScreen } from 'botpress/ui'
+import { confirmDialog, lang, toast, ModuleUI } from 'botpress/shared'
 import React, { useEffect, useState } from 'react'
 
 import AddLibrary from './AddLibrary'
@@ -9,6 +8,8 @@ export interface InstalledLibrary {
   name: string
   version: string
 }
+
+const { Container, ItemList, SidePanel, SidePanelSection, SplashScreen } = ModuleUI
 
 const MainView = props => {
   const [libraries, setLibraries] = useState([])
@@ -91,7 +92,7 @@ const MainView = props => {
         )}
 
         <div className={style.container}>
-          {page === 'add' && <AddLibrary axios={props.bp.axios} {...commonProps} />}
+          {page === 'add' && <AddLibrary axios={props.bp.axios} userProfile={props.userProfile} {...commonProps} />}
         </div>
       </div>
     </Container>

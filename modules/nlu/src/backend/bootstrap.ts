@@ -1,39 +1,31 @@
 import * as sdk from 'botpress/sdk'
-import * as NLU from 'common/nlu/engine'
+
 import _ from 'lodash'
+import yn from 'yn'
 
 import { Config } from '../config'
 
 import { getWebsocket } from './api'
-import { NLUApplication } from './application'
-import { ScopedServicesFactory } from './application/bot-factory'
-import { BotService } from './application/bot-service'
-import { DistributedTrainingQueue } from './application/distributed-training-queue'
-import { ScopedDefinitionsRepository } from './application/scoped/infrastructure/definitions-repository'
-import { ScopedModelRepository } from './application/scoped/infrastructure/model-repository'
-import { TrainingRepository } from './application/training-repo'
-import { BotDefinition } from './application/typings'
+import { BotFactory } from './application/bot-factory'
+import { DefinitionsRepository } from './application/definitions-repository'
+import { ModelEntryRepository } from './application/model-entry'
+import { NLUClient } from './application/nlu-client'
+import { NonBlockingNluApplication } from './application/non-blocking-app'
 
-export async function bootStrap(bp: typeof sdk): Promise<NLUApplication> {
-  const globalConfig: Config = await bp.config.getModuleConfig('nlu')
-
-  const {
-    ducklingEnabled,
-    ducklingURL,
-    languageSources,
-    modelCacheSize,
-    maxTrainingPerInstance,
-    queueTrainingOnBotMount,
-    legacyElection
-  } = globalConfig
-
-  const parsedConfig: NLU.Config = {
-    languageSources,
-    ducklingEnabled,
-    ducklingURL,
-    modelCacheSize,
-    legacyElection
+const getNLUServerConfig = (config: Config['nluServer']): { endpoint: string } => {
+  if (config.autoStart) {
+    return {
+      endpoint: `http://localhost:${process.NLU_PORT}`
+    }
   }
+  const { endpoint } = config
+  return { endpoint }
+}
+
+export async function bootStrap(bp: typeof sdk): Promise<NonBlockingNluApplication> {
+  const globalConfig: Config = await bp.config.getModuleConfig('nlu')
+  const { queueTrainingOnBotMount, legacyElection } = globalConfig
+  const trainingEnabled = !yn(process.env.BP_NLU_DISABLE_TRAINING)
 
   if (legacyElection) {
     bp.logger.warn(
@@ -41,37 +33,27 @@ export async function bootStrap(bp: typeof sdk): Promise<NLUApplication> {
     )
   }
 
-  const logger = <NLU.Logger>{
-    info: (msg: string) => bp.logger.info(msg),
-    warning: (msg: string, err?: Error) => (err ? bp.logger.attachError(err).warn(msg) : bp.logger.warn(msg)),
-    error: (msg: string, err?: Error) => (err ? bp.logger.attachError(err).error(msg) : bp.logger.error(msg))
-  }
-
-  const engine = await NLU.makeEngine(parsedConfig, logger)
+  const { endpoint: nluEndpoint } = getNLUServerConfig(globalConfig.nluServer)
+  const clientWrapper = new NLUClient(nluEndpoint)
 
   const socket = getWebsocket(bp)
 
-  const botService = new BotService()
+  const modelRepo = new ModelEntryRepository(bp.database)
+  await modelRepo.initialize()
 
-  const makeModelRepo = (bot: BotDefinition) =>
-    new ScopedModelRepository(bot, NLU.modelIdService, bp.ghost.forBot(bot.botId))
-
-  const makeDefRepo = (bot: BotDefinition) => new ScopedDefinitionsRepository(bot, bp)
-
-  const servicesFactory = new ScopedServicesFactory(engine, bp.logger, NLU.modelIdService, makeDefRepo, makeModelRepo)
-
-  const trainRepo = new TrainingRepository(bp.database)
-  const trainingQueue = new DistributedTrainingQueue(
-    trainRepo,
-    NLU.errors,
-    bp.logger,
-    botService,
-    bp.distributed,
-    socket,
-    { maxTraining: maxTrainingPerInstance }
+  const defRepo = new DefinitionsRepository(bp)
+  const botFactory = new BotFactory(nluEndpoint, bp.logger, defRepo, modelRepo, socket)
+  const application = new NonBlockingNluApplication(
+    clientWrapper,
+    botFactory,
+    {
+      queueTrainingsOnBotMount: trainingEnabled && queueTrainingOnBotMount
+    },
+    bp.logger
   )
-  await trainingQueue.initialize()
-  const application = new NLUApplication(trainingQueue, engine, servicesFactory, botService, queueTrainingOnBotMount)
+
+  // don't block entire server startup
+  void application.initialize()
 
   return application
 }

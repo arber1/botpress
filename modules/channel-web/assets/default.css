@@ -120,6 +120,10 @@ body {
   align-items: flex-start;
 }
 
+.bpw-file-button {
+  padding: 0;
+}
+
 .bpw-button-alt {
   background-color: var(--main-bg-color);
   font-size: 1rem;
@@ -274,14 +278,21 @@ body {
   min-height: 1px;
 }
 
-.bpw-msg-list {
+.bpw-msg-list-scroll-container {
   -webkit-box-flex: 1;
   -ms-flex: 1;
   flex: 1;
-  overflow-y: auto;
+  overflow-y: hidden;
   -ms-flex-positive: 1;
   flex-grow: 1;
+}
+
+.bpw-msg-list {
   padding: 0 0.5rem 0.5rem 0.5rem;
+}
+
+.bpw-msg-list-follow {
+  display: none;
 }
 
 .bpw-date-container {
@@ -389,8 +400,11 @@ body {
 
 .bpw-bubble-carousel {
   background: none;
+  border: 0px;
+  padding: 0px;
   margin: 10px 0;
-  width: 100%;
+  text-align: left;
+  width: 250px; /* Magic number so that it fits properly in the web */
 }
 
 .bpw-bubble-file {
@@ -400,8 +414,8 @@ body {
   padding: 0.5rem 0.75rem;
 }
 
-.bpw-bubble-file a {
-  display: block;
+.bpw-bubble-file a,
+.bpw-bubble-image a {
   cursor: pointer;
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
@@ -409,7 +423,9 @@ body {
   border-bottom-left-radius: inherit;
 }
 
-.bpw-bubble-file a img {
+.bpw-bubble-image a img,
+.bpw-bubble-audio audio,
+.bpw-bubble-video video {
   max-height: 240px;
   max-width: 100%;
   border-top-left-radius: inherit;
@@ -437,6 +453,14 @@ body {
   padding: 15px 20px;
   text-align: left;
   border-top: 1px solid #dcdcdc;
+}
+
+.bpw-in-message-quick_reply {
+  padding-top: 10px;
+}
+
+.bpw-in-message-quick_reply > button {
+  margin: 2px;
 }
 
 /* CAROUSEL  */
@@ -616,6 +640,10 @@ body {
   right: 0;
 }
 
+.bpw-keyboard-quick_reply-dropdown {
+  margin: 0.2rem 0.5rem;
+}
+
 .bpw-composer {
   border-top-width: 1px;
   border-top-style: solid;
@@ -631,6 +659,10 @@ body {
 .bpw-composer-inner {
   display: flex;
   padding: 5px;
+}
+
+.bpw-composer-textarea {
+  flex-grow: 2;
 }
 
 .bpw-composer textarea {
@@ -654,7 +686,7 @@ body {
 
 .bpw-send-buttons {
   display: flex;
-  align-items: center;
+  flex-direction: row;
 }
 
 .bpw-send-button {
@@ -864,7 +896,6 @@ body {
   margin-right: auto;
   max-width: 50%;
 }
-}
 
 .bpw-botinfo-cover-picture {
   width: 100%;
@@ -1050,4 +1081,35 @@ body {
 
 .bpw-mobx-tools {
   visibility: hidden;
+}
+
+.bpw-rtl .bpw-chat-bubble {
+  direction: rtl;
+}
+
+.bpw-rtl .bpw-composer-inner {
+  flex-direction: row-reverse;
+}
+
+.bpw-rtl .bpw-composer textarea {
+  direction: rtl;
+  padding: 0.75rem 1rem;
+  padding-left: 60px;
+}
+
+.bpw-rtl.bpw-botinfo-container .bpw-botinfo-terms {
+  text-align: right;
+}
+
+.bpw-rtl .bpw-date-container {
+  direction: rtl;
+}
+
+.bpw-rtl .bpw-card-container {
+  text-align: right;
+  direction: rtl;
+}
+
+.bpw-rtl .bpw-keyboard-quick_reply-dropdown {
+  direction: rtl;
 }

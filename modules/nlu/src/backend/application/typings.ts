@@ -1,9 +1,4 @@
-import { IO, NLU as SDKNLU } from 'botpress/sdk'
-import * as NLU from 'common/nlu/engine'
-
-export type I<C> = {
-  [k in keyof C]: C[k]
-}
+import { NLU as SDKNLU } from 'botpress/sdk'
 
 export interface BotConfig {
   id: string
@@ -19,27 +14,15 @@ export interface BotDefinition {
   seed: number
 }
 
-export type ProgressCallback = (p: number) => Promise<void>
-
-export interface Trainable {
-  train(language: string, progressCallback: ProgressCallback): Promise<NLU.ModelId>
-  load(modelId: NLU.ModelId): Promise<void>
-  cancelTraining(language: string): Promise<void>
-}
-
-export interface Predictor {
-  predict(text: string, anticipatedLanguage?: string): Promise<EventUnderstanding>
-}
-
-export type EventUnderstanding = Omit<IO.EventUnderstanding, 'includedContexts' | 'detectedLanguage'> & {
-  detectedLanguage?: string
+export interface TrainingError {
+  type: string
+  message: string
 }
 
 export interface TrainingState {
   status: SDKNLU.TrainingStatus
   progress: number
-  owner: string | null
-  modifiedOn: Date
+  error?: TrainingError
 }
 
 export interface TrainingId {
@@ -49,9 +32,15 @@ export interface TrainingId {
 
 export interface TrainingSession extends TrainingId, TrainingState {}
 
-export interface TrainerService {
-  hasBot(botId: string): boolean
-  getBot(botId: string): Trainable | undefined
+export interface PredictOutput {
+  entities: SDKNLU.Entity[]
+  predictions: Dic<SDKNLU.ContextPrediction>
+  spellChecked: string
 }
 
-export type TrainingListener = (ts: TrainingSession) => Promise<void>
+export interface TrainingSet {
+  intentDefs: SDKNLU.IntentDefinition[]
+  entityDefs: SDKNLU.EntityDefinition[]
+  languageCode: string
+  seed: number
+}
